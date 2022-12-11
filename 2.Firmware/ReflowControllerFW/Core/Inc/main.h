@@ -38,13 +38,9 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-typedef enum {MENU, REFLOW, PROFILE, PID, FINISH}screenState;
-
+typedef enum{POINT1, POINT2, POINT3, POINT4, START, CANCEL}Select;
 typedef struct{
-	int soakTemp;
-	int soakTime;
-	int peakTemp;
-	int reachedPeakTemp;
+	int time1, temp1, time2, temp2, time3, temp3, time4, temp4;
 } Profile;
 /* USER CODE END ET */
 
@@ -55,15 +51,7 @@ typedef struct{
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
-void menuScreen_static();
-screenState menuScreen_dynamic(Encoder *encoder);
-void reflowScreen_static();
-screenState reflowScreen_dynamic(PIDController *pid, Profile *profile, Encoder *encoder);
-void profileScreen_static(Profile *profile);
-screenState profileScreen_dynamic(Profile *profile, Encoder *encoder);
-void pidScreen_static(PIDController *pid);
-screenState pidScreen_dynamic(PIDController *pid, Encoder *encoder);
-screenState finishScreen_dynamic(Encoder *encoder);
+void rebuildScreen(Profile *profile);
 /* USER CODE END EM */
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);

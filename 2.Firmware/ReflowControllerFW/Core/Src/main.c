@@ -22,6 +22,7 @@
 #include "fonts.h"
 #include "ssd1306.h"
 #include "Encoder.h"
+#include "stdbool.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -86,9 +87,17 @@ int main(void)
   /* USER CODE BEGIN Init */
   PIDController pid;
   Profile profile;
+  profile.temp1 = *(__IO int *) 0x08004410;
+  profile.time1 = *(__IO int *) 0x08004414;
+  profile.temp2 = *(__IO int *) 0x08004418;
+  profile.time2 = *(__IO int *) 0x0800441C;
+  profile.temp3 = *(__IO int *) 0x08004420;
+  profile.time3 = *(__IO int *) 0x08004424;
+  profile.temp4 = *(__IO int *) 0x08004428;
+  profile.time4 = *(__IO int *) 0x0800442C;
   Encoder encoder;
-
-  Encoder_Init(&encoder, GPIOB, ENCA_Pin, ENCB_Pin);
+  encoder.tapped = false;
+  encoder.direction = 0;
   PIDController_Init(&pid);
   /* USER CODE END Init */
 
@@ -113,29 +122,94 @@ int main(void)
 
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
   SSD1306_Init();
-  menuScreen_static();
+  Select state = START;
+  char string[20];
+  SSD1306_GotoXY(92, 53);
+  strncpy(string, "START", 10);
+  SSD1306_DrawFilledRectangle(91, 51, 128, 64, SSD1306_COLOR_WHITE);
+  SSD1306_Puts(string, &Font_7x10, SSD1306_COLOR_BLACK);
+  SSD1306_UpdateScreen();
   while (1)
   {
-	  static screenState state = MENU;
+	  encoder = updateEncoder();
 	  switch(state){
-	  case MENU:
-		  state = menuScreen_dynamic(&encoder);
+	  case START:
+		  if (encoder.tapped){
+			  state = CANCEL;
+		 }
+		 else if (encoder.direction == 1){
+			  state = POINT1;
+			  SSD1306_GotoXY(92, 53);
+			  strncpy(string, "START", 10);
+			  SSD1306_DrawLine(92, 52, 127, 52, SSD1306_COLOR_BLACK);
+			  SSD1306_DrawRectangle(91, 51, 128, 64, SSD1306_COLOR_WHITE);
+			  SSD1306_Puts(string, &Font_7x10, SSD1306_COLOR_WHITE);
+			  SSD1306_UpdateScreen();
+		  }
+		  else if (encoder.direction == -1){
+			  state = POINT4;
+			  SSD1306_GotoXY(92, 53);
+			  strncpy(string, "START", 10);
+			  SSD1306_DrawLine(92, 52, 127, 52, SSD1306_COLOR_BLACK);
+			  SSD1306_DrawRectangle(91, 51, 128, 64, SSD1306_COLOR_WHITE);
+			  SSD1306_Puts(string, &Font_7x10, SSD1306_COLOR_WHITE);
+			  SSD1306_UpdateScreen();
+		  }
+		  rebuildScreen(&profile);
 		  break;
-	  case PROFILE:
-		  state = profileScreen_dynamic(&profile, &encoder);
+	  case CANCEL:
+
+		  if (encoder.tapped){
+			  state = START;
+		  }
 		  break;
-	  case PID:
-		  state = pidScreen_dynamic(&pid, &encoder);
+	  case POINT1:
+		  if (encoder.tapped){
+			  while (!encoder.tapped){
+				  profile.time1 += encoder.direction;
+				  SSD1306_GotoXY(18,18);
+				  sprintf(string, "OUT: %u", profile.time1);
+				  SSD1306_Puts(string, &Font_7x10, 1);
+				  SSD1306_UpdateScreen();
+			  }
+			  while (!encoder.tapped){
+				  profile.temp1 += encoder.direction;
+				  SSD1306_GotoXY(0,13);
+				  sprintf(string, "%u", profile.temp1);
+				  SSD1306_Puts(string, &Font_7x10, 1);
+				  SSD1306_UpdateScreen();
+			  }
+			  rebuildScreen(&profile);
+		  }
+		  else if (encoder.direction == 1){
+			  state = POINT2;
+		  }
+		  else if (encoder.direction == -1){
+			  state = START;
+		  }
 		  break;
-	  case REFLOW:
-		  state = reflowScreen_dynamic(&pid, &profile, &encoder);
+	  case POINT2:
+		  if (encoder.direction == 1){
+			  state = POINT3;
+		  }
+		  else if (encoder.direction == -1){
+			  state = POINT1;
+		  }
 		  break;
-	  case FINISH:
-		  state = finishScreen_dynamic(&encoder);
+	  case POINT3:
+
+		  if (encoder.direction == 1){
+			  state = POINT4;
+		  }
+		  else if (encoder.direction == -1){
+			  state = POINT2;
+		  }
+		  break;
+	  case POINT4:
+
 		  break;
 	  }
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
 
   }
@@ -351,125 +425,14 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void menuScreen_static(){
-	  SSD1306_Clear();
-	  SSD1306_GotoXY (0,3);
-	  SSD1306_Puts ("  REFLOW", &Font_11x18, 1);
-	  SSD1306_GotoXY (0, 24);
-	  SSD1306_Puts ("  PROFILE", &Font_11x18, 1);
-	  SSD1306_GotoXY (0, 45);
-	  SSD1306_Puts ("  PID", &Font_11x18, 1);
-	  SSD1306_UpdateScreen();
-}
-screenState menuScreen_dynamic(Encoder *encoder){
-	static int menuSelect = 3;
-	int encRead = 0;
-	encRead = Encoder_Read(encoder, GPIOB);
-	if (encRead != 0){
-		if ((encRead == 1) && (menuSelect < 45)){
-			menuSelect += 21;
-		}
-		else if ((encRead == -1) && (menuSelect > 3)){
-			menuSelect -= 21;
-		}
-		SSD1306_GotoXY (0, menuSelect);
-		SSD1306_Puts (">", &Font_11x18, 1);
-		SSD1306_GotoXY (0, menuSelect - 21);
-		SSD1306_Puts (" ", &Font_11x18, 1);
-		SSD1306_GotoXY (0, menuSelect + 21);
-		SSD1306_Puts (" ", &Font_11x18, 1);
-		SSD1306_UpdateScreen();
-	}
-	if (HAL_GPIO_ReadPin(RB1_GPIO_Port, RB1_Pin) == GPIO_PIN_RESET){
-		if (menuSelect == 3){
-			return REFLOW;
-		}
-		else if (menuSelect == 24){
-			return PROFILE;
-		}
-		else if (menuSelect == 45){
-			return PID;
-		}
-	}
-	return MENU;
-}
-void reflowScreen_static(){
-	SSD1306_Clear();
+void rebuildScreen(Profile *profile){
+	SSD1306_DrawLine(0, 0, 0, 64, SSD1306_COLOR_WHITE);
+	SSD1306_DrawLine(0, 128, 128, 128, SSD1306_COLOR_WHITE);
 
-}
-screenState reflowScreen_dynamic(PIDController *pid, Profile *profile, Encoder *encoder){
-	static uint16_t time = 1;
-	if (HAL_GPIO_ReadPin(RB1_GPIO_Port, RB1_Pin) == GPIO_PIN_RESET){
-		SSD1306_Clear();
-		return FINISH;
-	}
-	HAL_Delay(1000);
-
-	// NEED TO IMPLIMENT SPI COMMUNICATION WITH THERMOCOUPLE
-	SSD1306_DrawPixel(time, time, SSD1306_COLOR_WHITE);
-	time++;
-
-}
-void profileScreen_static(Profile *profile){
-	char profileString[20];
-	SSD1306_Clear();
-	SSD1306_GotoXY (0,3);
-	sprintf(profileString, "  Soak Temp: %u", profile->soakTemp);
-	SSD1306_Puts (profileString, &Font_11x18, 1);
-	SSD1306_GotoXY (0, 24);
-	sprintf(profileString, "  Soak Time: %u", profile->soakTime);
-	SSD1306_Puts (profileString, &Font_11x18, 1);
-	SSD1306_GotoXY (0, 45);
-	sprintf(profileString, "  Soak Temp: %u", profile->peakTemp);
-	SSD1306_Puts (profileString, &Font_11x18, 1);
+	//SSD1306_DrawLine(0, 0, profile->time1, profile->temp1, SSD1306_COLOR_WHITE);
 	SSD1306_UpdateScreen();
-}
-screenState profileScreen_dynamic(Profile *profile, Encoder *encoder){
-	static uint16_t profileSelect = 3;
-	char profileString[20];
-	if (profileSelect == 3){
-		profile->soakTemp += Encoder_Read(encoder, GPIOB);
-		SSD1306_GotoXY (0,3);
-		sprintf(profileString, "> Soak Temp: %u", profile->soakTemp);
-		SSD1306_Puts (profileString, &Font_11x18, 1);
-		SSD1306_UpdateScreen();
-		if ((HAL_GPIO_ReadPin(RB1_GPIO_Port, RB1_Pin) == GPIO_PIN_RESET)){
-			profileSelect = 24;
-		}
-	}
-	if (profileSelect == 24){
-		profile->soakTime += Encoder_Read(encoder, GPIOB);
-		SSD1306_GotoXY (0,24);
-		sprintf(profileString, "> Soak Time: %u", profile->soakTime);
-		SSD1306_Puts (profileString, &Font_11x18, 1);
-		SSD1306_UpdateScreen();
-		if ((HAL_GPIO_ReadPin(RB1_GPIO_Port, RB1_Pin) == GPIO_PIN_RESET)){
-			profileSelect = 45;
-		}
-	}
-	if (profileSelect == 45){
-		profile->peakTemp += Encoder_Read(encoder, GPIOB);
-		SSD1306_GotoXY (0,45);
-		sprintf(profileString, "> Peak Temp: %u", profile->peakTemp);
-		SSD1306_Puts (profileString, &Font_11x18, 1);
-		SSD1306_UpdateScreen();
-		if ((HAL_GPIO_ReadPin(RB1_GPIO_Port, RB1_Pin) == GPIO_PIN_RESET)){
-			return MENU;
-		}
-	}
-}
-void pidScreen_static(PIDController *pid){
 
-
-}
-screenState pidScreen_dynamic(PIDController *pid, Encoder *encoder){
-
-
-}
-screenState finishScreen_dynamic(Encoder *encoder){
-
-
-}
+};
 /* USER CODE END 4 */
 
 /**

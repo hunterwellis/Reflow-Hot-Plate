@@ -1,31 +1,59 @@
 #include "Encoder.h"
 
+void initEncoder(){
 
-void Encoder_Init(Encoder *enc, GPIO_TypeDef *GPIOx, uint16_t GPIO_PinA, uint16_t GPIO_PinB){
 
-	enc->pinA = GPIO_PinA;
-	enc->pinB = GPIO_PinB;
-	enc->aLastState = HAL_GPIO_ReadPin(GPIOx, enc->pinA);
 }
 
-int Encoder_Read(Encoder *enc, GPIO_TypeDef *GPIOx){
+int Encoder_Read(){
 
-	enc->aState = HAL_GPIO_ReadPin(GPIOx, enc->pinA);
-	enc->bState = HAL_GPIO_ReadPin(GPIOx, enc->pinB);
-	if (enc->aState != enc->aLastState){
-		if (enc->bState != enc->aState){
-			if (enc->aState == 0 && enc->bState == 1){
-				enc->aLastState = enc->aState;
-				return 1;
-			}
+	static GPIO_PinState aState = GPIO_PIN_SET;
+	static GPIO_PinState bState = GPIO_PIN_SET;
+	static GPIO_PinState aLastState = GPIO_PIN_SET;
+
+	aState = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10);
+	bState = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_11);
+
+	if (aState != aLastState){
+		if (aState == bState){
+			aLastState = aState;
+			return 1;
 		}
 		else {
-			if (enc->aState == 0 && enc->aState == 0){
-				enc->aLastState = enc->aState;
-				return -1;
-			}
+			aLastState = aState;
+			return -1;
 		}
 	}
-	enc->aLastState = enc->aState;
+	aLastState = aState;
 	return 0;
+}
+
+bool Encoder_Tapped(){
+	static bool debouncing = false;
+	static GPIO_PinState prev = GPIO_PIN_SET;
+	static GPIO_PinState current = GPIO_PIN_SET;
+	current = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8);
+	bool tapped = false;
+
+	if (debouncing){
+		HAL_Delay(1000);
+		debouncing = false;
+	}
+
+	if (!debouncing && prev == GPIO_PIN_SET && current == GPIO_PIN_RESET){
+		tapped = true;
+		debouncing = true;
+
+		prev = current;
+	}
+
+	return tapped;
+
+}
+Encoder updateEncoder(){
+	Encoder enc;
+	enc.tapped = Encoder_Tapped();
+	enc.direction = Encoder_Read();
+
+	return enc;
 }
