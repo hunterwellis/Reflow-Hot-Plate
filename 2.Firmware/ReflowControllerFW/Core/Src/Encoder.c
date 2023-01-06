@@ -14,8 +14,8 @@ int Encoder_Read(){
 	aState = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10);
 	bState = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_11);
 
-	if (aState != aLastState){
-		if (aState == bState){
+	if (aState == GPIO_PIN_RESET && aState != aLastState){
+		if (bState == aState){
 			aLastState = aState;
 			return 1;
 		}
@@ -25,6 +25,7 @@ int Encoder_Read(){
 		}
 	}
 	aLastState = aState;
+	HAL_Delay(1);
 	return 0;
 }
 
@@ -43,10 +44,9 @@ bool Encoder_Tapped(){
 	if (!debouncing && prev == GPIO_PIN_SET && current == GPIO_PIN_RESET){
 		tapped = true;
 		debouncing = true;
-
-		prev = current;
 	}
 
+	prev = current;
 	return tapped;
 
 }

@@ -23,6 +23,9 @@
 #include "ssd1306.h"
 #include "Encoder.h"
 #include "stdbool.h"
+#include "stdio.h"
+
+// NEED TO SET ENCA INPUT AS AN INTERRUPT IN ORDER TO GET MORE ACCURATE ENCODER READINGS
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -87,6 +90,16 @@ int main(void)
   /* USER CODE BEGIN Init */
   PIDController pid;
   Profile profile;
+  profile.temp1 = 150;
+  profile.time1 = 60;
+  profile.temp2 = 150;
+  profile.time2 = 180;
+  profile.temp3 = 250;
+  profile.time3 = 240;
+  profile.temp4 = 250;
+  profile.time4 = 300;
+
+  /*
   profile.temp1 = *(__IO int *) 0x08004410;
   profile.time1 = *(__IO int *) 0x08004414;
   profile.temp2 = *(__IO int *) 0x08004418;
@@ -95,6 +108,7 @@ int main(void)
   profile.time3 = *(__IO int *) 0x08004424;
   profile.temp4 = *(__IO int *) 0x08004428;
   profile.time4 = *(__IO int *) 0x0800442C;
+  */
   Encoder encoder;
   encoder.tapped = false;
   encoder.direction = 0;
@@ -124,72 +138,96 @@ int main(void)
   SSD1306_Init();
   Select state = START;
   char string[20];
+  rebuildScreen(&profile);
   SSD1306_GotoXY(92, 53);
   strncpy(string, "START", 10);
   SSD1306_DrawFilledRectangle(91, 51, 128, 64, SSD1306_COLOR_WHITE);
   SSD1306_Puts(string, &Font_7x10, SSD1306_COLOR_BLACK);
+
+  SSD1306_DrawRectangle(47, 51, 128, 64, SSD1306_COLOR_WHITE);
+  SSD1306_DrawRectangle(69, 51, 128, 64, SSD1306_COLOR_WHITE);
   SSD1306_UpdateScreen();
   while (1)
   {
 	  encoder = updateEncoder();
 	  switch(state){
 	  case START:
-		  if (encoder.tapped){
+		  SSD1306_GotoXY(48,53);
+		  strncpy(string, "---", 8);
+		  SSD1306_Puts(string, &Font_7x10, 1);
+		  SSD1306_GotoXY(70,53);
+		  strncpy(string, "---", 8);
+		  SSD1306_Puts(string, &Font_7x10, 1);
+		  SSD1306_UpdateScreen();
+		 if (encoder.tapped){
 			  state = CANCEL;
+			  // mark start button
+			  SSD1306_GotoXY(92, 53);
+			  strncpy(string, "QUIT ", 10);
+			  SSD1306_DrawFilledRectangle(91, 51, 128, 64, SSD1306_COLOR_WHITE);
+			  SSD1306_Puts(string, &Font_7x10, SSD1306_COLOR_BLACK);
+			  SSD1306_UpdateScreen();
 		 }
 		 else if (encoder.direction == 1){
 			  state = POINT1;
+			  // unmark start button
 			  SSD1306_GotoXY(92, 53);
 			  strncpy(string, "START", 10);
 			  SSD1306_DrawLine(92, 52, 127, 52, SSD1306_COLOR_BLACK);
 			  SSD1306_DrawRectangle(91, 51, 128, 64, SSD1306_COLOR_WHITE);
 			  SSD1306_Puts(string, &Font_7x10, SSD1306_COLOR_WHITE);
-			  SSD1306_UpdateScreen();
 		  }
 		  else if (encoder.direction == -1){
 			  state = POINT4;
+			  // unmark start button
 			  SSD1306_GotoXY(92, 53);
 			  strncpy(string, "START", 10);
 			  SSD1306_DrawLine(92, 52, 127, 52, SSD1306_COLOR_BLACK);
 			  SSD1306_DrawRectangle(91, 51, 128, 64, SSD1306_COLOR_WHITE);
 			  SSD1306_Puts(string, &Font_7x10, SSD1306_COLOR_WHITE);
-			  SSD1306_UpdateScreen();
 		  }
-		  rebuildScreen(&profile);
 		  break;
 	  case CANCEL:
-
 		  if (encoder.tapped){
 			  state = START;
+			  // mark start button
+			  SSD1306_GotoXY(92, 53);
+			  strncpy(string, "START", 10);
+			  SSD1306_DrawFilledRectangle(91, 51, 128, 64, SSD1306_COLOR_WHITE);
+			  SSD1306_Puts(string, &Font_7x10, SSD1306_COLOR_BLACK);
+			  SSD1306_UpdateScreen();
 		  }
 		  break;
 	  case POINT1:
-		  if (encoder.tapped){
-			  while (!encoder.tapped){
-				  profile.time1 += encoder.direction;
-				  SSD1306_GotoXY(18,18);
-				  sprintf(string, "OUT: %u", profile.time1);
-				  SSD1306_Puts(string, &Font_7x10, 1);
-				  SSD1306_UpdateScreen();
-			  }
-			  while (!encoder.tapped){
-				  profile.temp1 += encoder.direction;
-				  SSD1306_GotoXY(0,13);
-				  sprintf(string, "%u", profile.temp1);
-				  SSD1306_Puts(string, &Font_7x10, 1);
-				  SSD1306_UpdateScreen();
-			  }
-			  rebuildScreen(&profile);
+		  SSD1306_GotoXY(92, 53);
+		  strncpy(string, " P1  ", 10);
+		  SSD1306_Puts(string, &Font_7x10, SSD1306_COLOR_WHITE);
+		  SSD1306_UpdateScreen();
+
+		  if (editValues(&profile, &profile.temp1, &profile.time1, encoder.tapped, encoder.direction)){
 		  }
 		  else if (encoder.direction == 1){
 			  state = POINT2;
 		  }
 		  else if (encoder.direction == -1){
 			  state = START;
+			  // mark start button
+			  SSD1306_GotoXY(92, 53);
+			  strncpy(string, "START", 10);
+			  SSD1306_DrawFilledRectangle(91, 51, 128, 64, SSD1306_COLOR_WHITE);
+			  SSD1306_Puts(string, &Font_7x10, SSD1306_COLOR_BLACK);
+			  SSD1306_UpdateScreen();
 		  }
 		  break;
 	  case POINT2:
-		  if (encoder.direction == 1){
+		  SSD1306_GotoXY(92, 53);
+		  strncpy(string, " P2  ", 10);
+		  SSD1306_Puts(string, &Font_7x10, SSD1306_COLOR_WHITE);
+		  SSD1306_UpdateScreen();
+
+		  if (editValues(&profile, &profile.temp2, &profile.time2, encoder.tapped, encoder.direction)){
+		  }
+		  else if (encoder.direction == 1){
 			  state = POINT3;
 		  }
 		  else if (encoder.direction == -1){
@@ -197,8 +235,14 @@ int main(void)
 		  }
 		  break;
 	  case POINT3:
+		  SSD1306_GotoXY(92, 53);
+		  strncpy(string, " P3  ", 10);
+		  SSD1306_Puts(string, &Font_7x10, SSD1306_COLOR_WHITE);
+		  SSD1306_UpdateScreen();;
 
-		  if (encoder.direction == 1){
+		  if (editValues(&profile, &profile.temp3, &profile.time3, encoder.tapped, encoder.direction)){
+		  }
+		  else if (encoder.direction == 1){
 			  state = POINT4;
 		  }
 		  else if (encoder.direction == -1){
@@ -206,7 +250,25 @@ int main(void)
 		  }
 		  break;
 	  case POINT4:
+		  SSD1306_GotoXY(92, 53);
+		  strncpy(string, " P4  ", 10);
+		  SSD1306_Puts(string, &Font_7x10, SSD1306_COLOR_WHITE);
+		  SSD1306_UpdateScreen();
 
+		  if (editValues(&profile, &profile.temp4, &profile.time4, encoder.tapped, encoder.direction)){
+		  }
+		  else if (encoder.direction == 1){
+			  state = START;
+			  // mark start button
+			  SSD1306_GotoXY(92, 53);
+			  strncpy(string, "START", 10);
+			  SSD1306_DrawFilledRectangle(91, 51, 128, 64, SSD1306_COLOR_WHITE);
+			  SSD1306_Puts(string, &Font_7x10, SSD1306_COLOR_BLACK);
+			  SSD1306_UpdateScreen();
+		  }
+		  else if (encoder.direction == -1){
+			  state = POINT3;
+		  }
 		  break;
 	  }
     /* USER CODE END WHILE */
@@ -426,13 +488,91 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void rebuildScreen(Profile *profile){
+
+	SSD1306_Clear();
+	// x axis between 0 and 540 seconds (9 minutes)
+	// y axis between 0 and 250 degrees C
+	// mapped temperature and time
+	uint16_t mapTemp1 = 64-((64*profile->temp1)/250);
+	uint16_t mapTemp2 = 64-((64*profile->temp2)/250);
+	uint16_t mapTemp3 = 64-((64*profile->temp3)/250);
+	uint16_t mapTemp4 = 64-((64*profile->temp4)/250);
+	uint16_t mapTime1 = (128*profile->time1)/540;
+	uint16_t mapTime2 = (128*profile->time2)/540;
+	uint16_t mapTime3 = (128*profile->time3)/540;
+	uint16_t mapTime4 = (128*profile->time4)/540;
+	uint16_t finTemp = mapTime4/4;
+
+	// reflow profile lines
+	SSD1306_DrawLine(0, 59, mapTime1, mapTemp1, SSD1306_COLOR_WHITE);
+	SSD1306_DrawLine(mapTime1, mapTemp1, mapTime2, mapTemp2, SSD1306_COLOR_WHITE);
+	SSD1306_DrawLine(mapTime2, mapTemp2, mapTime3, mapTemp3, SSD1306_COLOR_WHITE);
+	SSD1306_DrawLine(mapTime3, mapTemp3, mapTime4, mapTemp4, SSD1306_COLOR_WHITE);
+	SSD1306_DrawLine(mapTime4, mapTemp4, 128, finTemp, SSD1306_COLOR_WHITE);
+
+	// axis lines
 	SSD1306_DrawLine(0, 0, 0, 64, SSD1306_COLOR_WHITE);
 	SSD1306_DrawLine(0, 128, 128, 128, SSD1306_COLOR_WHITE);
 
+	// unmark start button
+	SSD1306_GotoXY(92, 53);
+	SSD1306_DrawLine(92, 52, 127, 52, SSD1306_COLOR_BLACK);
+	SSD1306_DrawRectangle(91, 51, 128, 64, SSD1306_COLOR_WHITE);
+
+	SSD1306_DrawRectangle(47, 51, 128, 64, SSD1306_COLOR_WHITE);
+	SSD1306_DrawRectangle(69, 51, 128, 64, SSD1306_COLOR_WHITE);
 	//SSD1306_DrawLine(0, 0, profile->time1, profile->temp1, SSD1306_COLOR_WHITE);
 	SSD1306_UpdateScreen();
-
 };
+
+bool editValues(Profile *profile, uint16_t *temp, uint16_t *time, bool button, int direction){
+	static uint8_t tapCount = 0;
+	static char string[10];
+
+	if (button){
+		tapCount++;
+		SSD1306_GotoXY(48,53);
+		SSD1306_DrawLine(49, 52, 68, 52, SSD1306_COLOR_BLACK);
+		sprintf(string, "%03u", *time);
+		SSD1306_Puts(string, &Font_7x10, 1);
+		SSD1306_GotoXY(70,53);
+		sprintf(string, "%03u", *temp);
+		SSD1306_Puts(string, &Font_7x10, 1);
+		SSD1306_UpdateScreen();
+	}
+	if (tapCount == 0){
+		SSD1306_GotoXY(48,53);
+		sprintf(string, "%03u", *time);
+		SSD1306_Puts(string, &Font_7x10, 1);
+		SSD1306_GotoXY(70,53);
+		sprintf(string, "%03u", *temp);
+		SSD1306_Puts(string, &Font_7x10, 1);
+		SSD1306_UpdateScreen();
+	}
+	else if (tapCount == 1){
+		*time += direction;
+		SSD1306_DrawFilledRectangle(47, 51, 21, 64, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY(48,53);
+		sprintf(string, "%03u", *time);
+		SSD1306_Puts(string, &Font_7x10, SSD1306_COLOR_BLACK);
+		SSD1306_UpdateScreen();
+	}
+	else if (tapCount == 2){
+		*temp += direction;
+		SSD1306_DrawFilledRectangle(69, 51, 21, 64, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY(70,53);
+		sprintf(string, "%03u", *temp);
+		SSD1306_Puts(string, &Font_7x10, SSD1306_COLOR_BLACK);
+		SSD1306_UpdateScreen();
+	}
+	else if (tapCount > 2){
+		tapCount = 0;
+		rebuildScreen(profile);
+	}
+	// exit condition
+	if (tapCount == 0) return false;
+	else return true;
+}
 /* USER CODE END 4 */
 
 /**

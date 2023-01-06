@@ -40,7 +40,7 @@ extern "C" {
 /* USER CODE BEGIN ET */
 typedef enum{POINT1, POINT2, POINT3, POINT4, START, CANCEL}Select;
 typedef struct{
-	int time1, temp1, time2, temp2, time3, temp3, time4, temp4;
+	uint16_t time1, temp1, time2, temp2, time3, temp3, time4, temp4;
 } Profile;
 /* USER CODE END ET */
 
@@ -52,6 +52,7 @@ typedef struct{
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
 void rebuildScreen(Profile *profile);
+bool editValues(Profile *profile, uint16_t *temp, uint16_t *time, bool button, int direction);
 /* USER CODE END EM */
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
