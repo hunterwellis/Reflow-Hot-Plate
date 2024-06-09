@@ -28,12 +28,11 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f1xx_hal.h"
-#include "PID.h"
-#include "Encoder.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "PID.h"
+#include "Encoder.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -53,6 +52,7 @@ typedef struct{
 /* USER CODE BEGIN EM */
 void rebuildScreen(Profile *profile);
 bool editValues(Profile *profile, uint16_t *temp, uint16_t *time, bool button, int direction);
+void reflowActive(Profile* profile, PIDController pid);
 /* USER CODE END EM */
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
@@ -65,14 +65,10 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define TMP_CSS_Pin GPIO_PIN_4
-#define TMP_CSS_GPIO_Port GPIOA
-#define ENCA_Pin GPIO_PIN_10
-#define ENCA_GPIO_Port GPIOB
-#define ENCB_Pin GPIO_PIN_11
-#define ENCB_GPIO_Port GPIOB
-#define RB1_Pin GPIO_PIN_8
-#define RB1_GPIO_Port GPIOA
+#define RLED_Pin GPIO_PIN_1
+#define RLED_GPIO_Port GPIOA
+#define HOT_PLATE_Pin GPIO_PIN_2
+#define HOT_PLATE_GPIO_Port GPIOA
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
